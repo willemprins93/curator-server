@@ -26,7 +26,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-app.get("/", (req, res) => res.json({ true }));
+app.get("/", (req, res) => res.json(true));
 app.use("/auth", authRouter);
 app.use("/artwork", artworkRouter);
 
