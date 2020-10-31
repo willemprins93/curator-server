@@ -116,7 +116,6 @@ router.get("/liked/:id", (req, res) => {
 //////////////////////////////////////////
 // CREATE or UPDATE ARTWORK IN RestAPI //
 ////////////////////////////////////////
-// hello
 
 router.post("/add", (req, res) => {
   const { userId, artwork, artists, image } = req.body;
@@ -149,6 +148,7 @@ router.post("/add", (req, res) => {
           artist: artists[0].name,
           artistNationality: artists[0].nationality,
           artistBio: artists[0].biography,
+          date: artwork.date,
           medium: artwork.medium,
           img: image,
           collectingInstitution: artwork.collecting_institution,
@@ -174,6 +174,26 @@ router.post("/add", (req, res) => {
             return res.status(400).json({ errorMessage: err });
           });
       }
+    })
+    .catch((err) => res.status(500).json({ errorMessage: err }));
+});
+
+router.post("/addliked", (req, res) => {
+  const { userId, artworkId } = req.body;
+
+  Artwork.findByIdAndUpdate(
+    artworkId,
+    { $addToSet: { usersLiked: userId } },
+    { new: true }
+  )
+    .then((updatedArtwork) => {
+      User.findByIdAndUpdate(
+        userId,
+        { $addToSet: { artworksLiked: artworkId } },
+        { new: true }
+      ).then((updatedUser) => {
+        res.status(200).json({ updatedUser, updatedArtwork });
+      });
     })
     .catch((err) => res.status(500).json({ errorMessage: err }));
 });
