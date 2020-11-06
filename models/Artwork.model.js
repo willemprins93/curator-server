@@ -10,22 +10,22 @@ const artworkSchema = new Schema(
     artist: {
       type: String,
       default: "Artist Unknown",
-      set: (v) => (v === "" ? "Artist unknown" : v),
+      set: (v) => (v === "" || v === undefined ? "Artist unknown" : v),
     },
     artistNationality: {
       type: String,
       default: "Nationality unknown",
-      set: (v) => (v === "" ? "Nationality unknown" : v),
+      set: (v) => (v === "" || v === undefined ? "Nationality unknown" : v),
     },
     artistBio: {
       type: String,
       default: "No further information",
-      set: (v) => (v === "" ? "No further information" : v),
+      set: (v) => (v === "" || v === undefined ? "No further information" : v),
     },
     date: {
       type: String,
       default: "Date unknown",
-      set: (v) => (v === "" ? "Date unknown" : v),
+      set: (v) => (v === "" || v === undefined ? "Date unknown" : v),
     },
     medium: {
       type: String,
