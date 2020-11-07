@@ -4,23 +4,12 @@ const artworkSchema = new Schema(
   {
     title: {
       type: String,
-      default: "Title Unknown",
+      default: "Title unknown",
       set: (v) => (v === "" ? "Title Unknown" : v),
     },
     artist: {
-      type: String,
-      default: "Artist Unknown",
-      set: (v) => (v === "" || v === undefined ? "Artist unknown" : v),
-    },
-    artistNationality: {
-      type: String,
-      default: "Nationality unknown",
-      set: (v) => (v === "" || v === undefined ? "Nationality unknown" : v),
-    },
-    artistBio: {
-      type: String,
-      default: "No further information",
-      set: (v) => (v === "" || v === undefined ? "No further information" : v),
+      type: Schema.Types.ObjectId,
+      ref: "Artist",
     },
     date: {
       type: String,

@@ -31,7 +31,7 @@ router.post("/signup", (req, res, next) => {
   if (!regex.test(password)) {
     res.status(200).json({
       errorMessage:
-        "Password needs to have at least 6 chars and must contain at least one number, one lowercase and one uppercase letter.",
+        "Password needs to have at least 6 characters and must contain at least one number, one lowercase and one uppercase letter.",
     });
     return;
   }
@@ -69,7 +69,8 @@ router.post("/signup", (req, res, next) => {
         res.status(200).json({ errorMessage: error.message });
       } else if (error.code === 11000) {
         res.status(200).json({
-          errorMessage: "Email needs to be unique. This email is already used.",
+          errorMessage:
+            "Email needs to be unique. This email has already been used.",
         });
       } else {
         res.status(500).json({ errorMessage: error });
@@ -140,7 +141,12 @@ router.post("/logout", (req, res) => {
 router.post("/user/profile", (req, res) => {
   const { userId } = req.body;
   User.findById(userId)
-    .populate("artworksLiked")
+    .populate({
+      path: "artworksLiked",
+      populate: {
+        path: "artist",
+      },
+    })
     .then((user) => res.status(200).json(user))
     .catch((err) => res.status(200).json({ errorMessage: err }));
 });

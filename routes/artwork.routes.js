@@ -2,8 +2,8 @@ const { Router } = require("express");
 const router = new Router();
 const Artwork = require("../models/Artwork.model");
 const User = require("../models/User.model");
-const mongoose = require("mongoose");
 const axios = require("axios");
+const Artist = require("../models/Artist.model");
 
 ///////////////////////////////
 // GET DATA FROM ARTSY API //
@@ -62,19 +62,47 @@ router.get("/:apiToken/random", (req, res) => {
     .catch((err) => console.log(err));
 });
 
-// router.get("/:apiToken/search/:query", (req, res) => {
-//   const { apiToken, query } = req.params;
-//   axios
-//     .post(`https://api.artsy.net/api/search?q=${query}"`, {
-//       headers: {
-//         "X-XAPP-Token": apiToken,
-//       },
-//     })
-//     .then((response) => {
-//       res.status(200).json(response);
-//     })
-//     .catch((err) => res.status(400).json({ errorMessage: err }));
-// });
+router.get("/:apiToken/search/:query", (req, res) => {
+  const { apiToken, query } = req.params;
+  axios
+    .get(`https://api.artsy.net/api/search?q=${query}`, {
+      headers: {
+        "X-XAPP-Token": apiToken,
+      },
+    })
+    .then((response) => {
+      res.status(200).json(response.data);
+    })
+    .catch((err) => res.status(400).json({ errorMessage: err }));
+});
+
+router.get("/:apiToken/artist/:id", (req, res) => {
+  const { apiToken, id } = req.params;
+  axios
+    .get(`https://api.artsy.net/api/artworks?artist_id=${id}`, {
+      headers: {
+        "X-XAPP-Token": apiToken,
+      },
+    })
+    .then((response) => {
+      res.status(200).json(response.data);
+    })
+    .catch((err) => res.status(400).json({ errorMessage: err }));
+});
+
+router.get("/:apiToken/:url", (req, res) => {
+  const { apiToken, url } = req.params;
+  axios
+    .get(url, {
+      headers: {
+        "X-XAPP-Token": apiToken,
+      },
+    })
+    .then((response) => {
+      res.status(200).json(response.data);
+    })
+    .catch((err) => res.status(400).json({ errorMessage: err }));
+});
 
 ////////////////////////////
 // GET DATA FROM RestAPI //
@@ -82,14 +110,19 @@ router.get("/:apiToken/random", (req, res) => {
 
 router.get("/liked", (req, res) => {
   Artwork.find({})
+    .populate("artist")
     .then((response) => res.status(200).json(response))
     .catch((err) => res.status(500).json({ errorMessage: err }));
 });
 
 router.get("/liked/:id", (req, res) => {
   const { id } = req.params;
+  console.log("BANANA");
   Artwork.findById(id)
-    .then((response) => res.status(200).json(response))
+    .populate("artist")
+    .then((response) => {
+      res.status(200).json(response.data);
+    })
     .catch((err) => res.status(500).json({ errorMessage: err }));
 });
 
@@ -99,11 +132,6 @@ router.get("/liked/:id", (req, res) => {
 
 router.post("/add", (req, res) => {
   const { userId, apiToken, artwork, image } = req.body;
-  console.log({
-    userId: userId,
-    artwork: artwork,
-    image: image,
-  });
   Artwork.findOne({ artworkId: artwork.id.toString() })
     .then((artworkFromDB) => {
       if (artworkFromDB !== null) {
@@ -127,48 +155,128 @@ router.post("/add", (req, res) => {
           )
           .catch((err) => console.log(err));
       } else {
-        console.log("Inside the create");
         const artistLink = artwork._links.artists.href;
-        console.log("Artist LINK: ", artwork._links.artists.href);
         axios
           .get(artistLink, {
             headers: {
               "X-XAPP-Token": apiToken,
             },
           })
-          .then((artist) => {
-            console.log({
-              artists: artist.data._embedded.artists,
-            });
-            const artists = artist.data._embedded.artists;
-            Artwork.create({
-              title: artwork.title,
-              artist: artists[0].name,
-              artistNationality: artists[0].nationality,
-              artistBio: artists[0].biography,
-              date: artwork.date,
-              medium: artwork.medium,
-              img: image,
-              collectingInstitution: artwork.collecting_institution,
-              artworkId: artwork.id,
-              usersLiked: [userId],
-            }).then((createdArtwork) => {
-              console.log("Artwork created");
-              User.findByIdAndUpdate(
-                userId,
-                { $addToSet: { artworksLiked: createdArtwork._id } },
-                { new: true }
-              ).then((updatedUser) => {
-                res.status(201).json({
-                  success: "Artwork created and User updated",
-                  createdArtwork,
-                  updatedUser,
-                });
+          .then((response) => {
+            if (response.data._embedded.artists[0].id) {
+              console.log("There is an artist");
+              Artist.findOne({
+                artistId: response.data._embedded.artists[0].id,
+              }).then((artistFromDB) => {
+                if (artistFromDB !== null) {
+                  Artwork.create({
+                    title: artwork.title,
+                    artist: artistFromDB._id,
+                    date: artwork.date,
+                    medium: artwork.medium,
+                    collectingInstitution: artwork.collecting_institution,
+                    img: image,
+                    artworkId: artwork.id,
+                    usersLiked: [userId],
+                  })
+                    .then((createdArtwork) =>
+                      User.findByIdAndUpdate(
+                        userId,
+                        { $addToSet: { artworksLiked: updatedArtwork._id } },
+                        { new: true }
+                      ).then((updatedUser) => {
+                        res.status(201).json({
+                          success: "Artwork and User updated",
+                          createdArtwork,
+                          updatedUser,
+                        });
+                      })
+                    )
+                    .catch((err) => console.error(err));
+                } else {
+                  console.log(response.data._embedded.artists[0]);
+                  const artist = response.data._embedded.artists[0];
+                  let imageLinkTemplate = artist._links.image.href;
+                  let version = 0;
+                  if (artist.image_versions.indexOf("large") >= 0) {
+                    version = artist.image_versions.indexOf("large");
+                  } else if (artist.image_versions.indexOf("normalized") >= 0) {
+                    version = artist.mage_versions.indexOf("normalized");
+                  } else {
+                    version = 0;
+                  }
+                  const imageLink = imageLinkTemplate.replace(
+                    "{image_version}",
+                    artist.image_versions[version]
+                  );
+                  Artist.create({
+                    name: artist.name,
+                    sortName: artist.sortable_name,
+                    bio: artist.biography,
+                    nationality: artist.nationality,
+                    birthday: artist.birthdate,
+                    deathday: artist.deathday,
+                    img: artist.image,
+                    artistId: artist.id,
+                  }).then((createdArtist) => {
+                    console.log("new artist created: ", createdArtist);
+                    Artwork.create({
+                      title: artwork.title,
+                      artist: createdArtist._id,
+                      date: artwork.date,
+                      medium: artwork.medium,
+                      collectingInstitution: artwork.collecting_institution,
+                      img: image,
+                      artworkId: artwork.id,
+                      usersLiked: [userId],
+                    }).then((createdArtwork) => {
+                      console.log("Artwork created");
+                      User.findByIdAndUpdate(
+                        userId,
+                        { $addToSet: { artworksLiked: createdArtwork._id } },
+                        { new: true }
+                      ).then((updatedUser) => {
+                        res.status(201).json({
+                          success: "Artwork created and User updated",
+                          createdArtwork,
+                          createdArtist,
+                          updatedUser,
+                        });
+                      });
+                    });
+                  });
+                }
               });
-            });
+            } else {
+              console.log("there is no artist");
+              Artwork.create({
+                title: artwork.title,
+                date: artwork.date,
+                medium: artwork.medium,
+                collectingInstitution: artwork.collecting_institution,
+                img: image,
+                artworkId: artwork.id,
+                usersLiked: [userId],
+              })
+                .then((createdArtwork) =>
+                  User.findByIdAndUpdate(
+                    userId,
+                    { $addToSet: { artworksLiked: updatedArtwork._id } },
+                    { new: true }
+                  ).then((updatedUser) => {
+                    res.status(201).json({
+                      success: "Artwork and User updated",
+                      createdArtwork,
+                      updatedUser,
+                    });
+                  })
+                )
+                .catch((err) => console.error(err));
+            }
           })
           .catch((err) => {
             console.log("Did not create");
+            console.log(err);
             return res.status(400).json({ errorMessage: err });
           });
       }
