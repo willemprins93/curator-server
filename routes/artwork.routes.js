@@ -5,105 +5,6 @@ const User = require("../models/User.model");
 const axios = require("axios");
 const Artist = require("../models/Artist.model");
 
-///////////////////////////////
-// GET DATA FROM ARTSY API //
-/////////////////////////////
-
-router.get(`/:apiToken/:id/similar`, (req, res) => {
-  const { apiToken, id } = req.params;
-
-  console.log("PARAMS ", apiToken, id);
-
-  axios
-    .get(`https://api.artsy.net/api/artworks?similar_to_artwork_id=${id}`, {
-      headers: {
-        "X-XAPP-Token": apiToken,
-      },
-    })
-    .then((response) => {
-      console.log(response);
-      return res
-        .status(200)
-        .json({ artworks: response.data._embedded.artworks });
-    })
-    .catch((err) => {
-      console.log("ERROR WHILE SIMILAR ", err);
-      return res.status(500).json({ errorMessage: err });
-    });
-});
-
-router.get("/:apiToken/random", (req, res) => {
-  const { apiToken } = req.params;
-  axios
-    .get("https://api.artsy.net/api/artworks?sample", {
-      headers: {
-        "X-XAPP-Token": apiToken,
-      },
-    })
-    .then((artwork) => {
-      let imageLinkTemplate = artwork.data._links.image.href;
-      let version = 0;
-      if (artwork.data.image_versions.indexOf("large") >= 0) {
-        version = artwork.data.image_versions.indexOf("large");
-      } else if (artwork.data.image_versions.indexOf("normalized") >= 0) {
-        version = artwork.data.image_versions.indexOf("normalized");
-      } else {
-        version = 0;
-      }
-      const imageLink = imageLinkTemplate.replace(
-        "{image_version}",
-        artwork.data.image_versions[version]
-      );
-      res.status(200).json({
-        artworkInfo: artwork.data,
-        image: imageLink,
-      });
-    })
-    .catch((err) => console.log(err));
-});
-
-router.get("/:apiToken/search/:query", (req, res) => {
-  const { apiToken, query } = req.params;
-  axios
-    .get(`https://api.artsy.net/api/search?q=${query}`, {
-      headers: {
-        "X-XAPP-Token": apiToken,
-      },
-    })
-    .then((response) => {
-      res.status(200).json(response.data);
-    })
-    .catch((err) => res.status(400).json({ errorMessage: err }));
-});
-
-router.get("/:apiToken/artist/:id", (req, res) => {
-  const { apiToken, id } = req.params;
-  axios
-    .get(`https://api.artsy.net/api/artworks?artist_id=${id}`, {
-      headers: {
-        "X-XAPP-Token": apiToken,
-      },
-    })
-    .then((response) => {
-      res.status(200).json(response.data);
-    })
-    .catch((err) => res.status(400).json({ errorMessage: err }));
-});
-
-router.get("/:apiToken/:url", (req, res) => {
-  const { apiToken, url } = req.params;
-  axios
-    .get(url, {
-      headers: {
-        "X-XAPP-Token": apiToken,
-      },
-    })
-    .then((response) => {
-      res.status(200).json(response.data);
-    })
-    .catch((err) => res.status(400).json({ errorMessage: err }));
-});
-
 ////////////////////////////
 // GET DATA FROM RestAPI //
 //////////////////////////
@@ -117,13 +18,14 @@ router.get("/liked", (req, res) => {
 
 router.get("/liked/:id", (req, res) => {
   const { id } = req.params;
-  console.log("BANANA");
   Artwork.findById(id)
     .populate("artist")
     .then((response) => {
-      res.status(200).json(response.data);
+      res.status(200).json(response);
     })
-    .catch((err) => res.status(500).json({ errorMessage: err }));
+    .catch((err) => {
+      res.status(500).json({ errorMessage: err });
+    });
 });
 
 //////////////////////////////////////////
@@ -164,7 +66,6 @@ router.post("/add", (req, res) => {
           })
           .then((response) => {
             if (response.data._embedded.artists[0].id) {
-              console.log("There is an artist");
               Artist.findOne({
                 artistId: response.data._embedded.artists[0].id,
               }).then((artistFromDB) => {
@@ -194,7 +95,6 @@ router.post("/add", (req, res) => {
                     )
                     .catch((err) => console.error(err));
                 } else {
-                  console.log(response.data._embedded.artists[0]);
                   const artist = response.data._embedded.artists[0];
                   let imageLinkTemplate = artist._links.image.href;
                   let version = 0;
@@ -219,7 +119,6 @@ router.post("/add", (req, res) => {
                     img: artist.image,
                     artistId: artist.id,
                   }).then((createdArtist) => {
-                    console.log("new artist created: ", createdArtist);
                     Artwork.create({
                       title: artwork.title,
                       artist: createdArtist._id,
@@ -230,7 +129,6 @@ router.post("/add", (req, res) => {
                       artworkId: artwork.id,
                       usersLiked: [userId],
                     }).then((createdArtwork) => {
-                      console.log("Artwork created");
                       User.findByIdAndUpdate(
                         userId,
                         { $addToSet: { artworksLiked: createdArtwork._id } },
@@ -248,7 +146,6 @@ router.post("/add", (req, res) => {
                 }
               });
             } else {
-              console.log("there is no artist");
               Artwork.create({
                 title: artwork.title,
                 date: artwork.date,
@@ -271,12 +168,10 @@ router.post("/add", (req, res) => {
                     });
                   })
                 )
-                .catch((err) => console.error(err));
+                .catch((err) => res.status(400).json({ errorMessage: err }));
             }
           })
           .catch((err) => {
-            console.log("Did not create");
-            console.log(err);
             return res.status(400).json({ errorMessage: err });
           });
       }
@@ -302,6 +197,104 @@ router.post("/addliked", (req, res) => {
       });
     })
     .catch((err) => res.status(500).json({ errorMessage: err }));
+});
+
+///////////////////////////////
+// GET DATA FROM ARTSY API //
+/////////////////////////////
+
+router.post("/:apiToken/more", (req, res) => {
+  const { apiToken } = req.params;
+  const { url } = req.body;
+  axios
+    .get(url, {
+      headers: {
+        "X-XAPP-Token": apiToken,
+      },
+    })
+    .then((response) => {
+      res.status(200).json(response.data);
+    })
+    .catch((err) => res.status(400).json({ errorMessage: err }));
+});
+
+router.get(`/:apiToken/:id/similar`, (req, res) => {
+  const { apiToken, id } = req.params;
+
+  axios
+    .get(`https://api.artsy.net/api/artworks?similar_to_artwork_id=${id}`, {
+      headers: {
+        "X-XAPP-Token": apiToken,
+      },
+    })
+    .then((response) => {
+      return res.status(200).json(response.data);
+    })
+    .catch((err) => {
+      return res.status(500).json({ errorMessage: err });
+    });
+});
+
+router.get("/:apiToken/random", (req, res) => {
+  const { apiToken } = req.params;
+  axios
+    .get("https://api.artsy.net/api/artworks?sample", {
+      headers: {
+        "X-XAPP-Token": apiToken,
+      },
+    })
+    .then((artwork) => {
+      let imageLinkTemplate = artwork.data._links.image.href;
+      let version = 0;
+      if (artwork.data.image_versions.indexOf("large") >= 0) {
+        version = artwork.data.image_versions.indexOf("large");
+      } else if (artwork.data.image_versions.indexOf("normalized") >= 0) {
+        version = artwork.data.image_versions.indexOf("normalized");
+      } else {
+        version = 0;
+      }
+      const imageLink = imageLinkTemplate.replace(
+        "{image_version}",
+        artwork.data.image_versions[version]
+      );
+      res.status(200).json({
+        artworkInfo: artwork.data,
+        image: imageLink,
+      });
+    })
+    .catch((err) => res.status(500).json({ errorMessage: err }));
+});
+
+router.get("/:apiToken/search/:query", (req, res) => {
+  const { apiToken, query } = req.params;
+  console.log("query: ", query);
+  axios
+    .get(
+      `https://api.artsy.net/api/search?q=${query}+more:pagemap:metatags-og_type:artwork`,
+      {
+        headers: {
+          "X-XAPP-Token": apiToken,
+        },
+      }
+    )
+    .then((response) => {
+      res.status(200).json(response.data);
+    })
+    .catch((err) => res.status(400).json({ errorMessage: err }));
+});
+
+router.get("/:apiToken/artist/:id", (req, res) => {
+  const { apiToken, id } = req.params;
+  axios
+    .get(`https://api.artsy.net/api/artworks?artist_id=${id}`, {
+      headers: {
+        "X-XAPP-Token": apiToken,
+      },
+    })
+    .then((response) => {
+      res.status(200).json(response.data);
+    })
+    .catch((err) => res.status(400).json({ errorMessage: err }));
 });
 
 module.exports = router;
