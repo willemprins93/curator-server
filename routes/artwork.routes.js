@@ -258,6 +258,9 @@ router.get("/:apiToken/random", (req, res) => {
         artwork.data.image_versions[version]
       );
       res.status(200).json({
+        headers: {
+          "Allow-Access-Origin": process.env.ORIGIN,
+        },
         artworkInfo: artwork.data,
         image: imageLink,
       });
