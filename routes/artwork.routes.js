@@ -236,7 +236,6 @@ router.get(`/:apiToken/:id/similar`, (req, res) => {
 });
 
 router.get("/:apiToken/random", (req, res) => {
-  res.setHeader(("Access-Control-Allow-Origin", process.env.ORIGIN));
   const { apiToken } = req.params;
   axios
     .get("https://api.artsy.net/api/artworks?sample", {

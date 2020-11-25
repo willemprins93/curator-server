@@ -18,7 +18,6 @@ app.use(
   cors({
     credentials: true,
     origin: process.env.ORIGIN || "http://localhost:3000",
-    "Allow-Access-Origin": process.env.ORIGIN || "http://localhost:3000",
   })
 );
 
@@ -27,7 +26,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-app.get("/", (req, res) => res.json(true));
+app.get("/", (req, res) =>
+  res.setHeader("Access-Allow-Control-Origin", process.env.ORIGIN)
+);
 app.use("/auth", authRouter);
 app.use("/artwork", artworkRouter);
 
