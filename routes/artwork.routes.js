@@ -236,6 +236,7 @@ router.get(`/:apiToken/:id/similar`, (req, res) => {
 });
 
 router.get("/:apiToken/random", (req, res) => {
+  res.setHeader(("Access-Control-Allow-Origin", process.env.ORIGIN));
   const { apiToken } = req.params;
   axios
     .get("https://api.artsy.net/api/artworks?sample", {
@@ -258,9 +259,6 @@ router.get("/:apiToken/random", (req, res) => {
         artwork.data.image_versions[version]
       );
       res.status(200).json({
-        headers: {
-          "Access-Control-Allow-Origin": process.env.ORIGIN,
-        },
         artworkInfo: artwork.data,
         image: imageLink,
       });
