@@ -259,7 +259,7 @@ router.get("/:apiToken/random", (req, res) => {
       );
       res.status(200).json({
         headers: {
-          "Allow-Access-Origin": process.env.ORIGIN,
+          "Access-Control-Allow-Origin": process.env.ORIGIN,
         },
         artworkInfo: artwork.data,
         image: imageLink,
